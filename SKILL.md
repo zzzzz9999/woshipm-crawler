@@ -1,113 +1,156 @@
 ---
 name: woshipm-crawler
-description: 人人都是产品经理 (woshipm.com) 文章爬虫。基于 RSS Feed 获取完整文章数据（标题、作者、时间、分类、标签、摘要、正文、图片、评论数），支持9个分类和全站爬取，输出JSON/CSV。当用户提到"爬取人人都是产品经理"、"woshipm爬虫"、"产品经理文章爬取"时触发。
+description: Crawl articles from woshipm.com (人人都是产品经理) via RSS Feed. Extracts full article data including title, author, publish date, category, tags, summary, full content (HTML + plain text), images, and comment count. Supports 9 categories and site-wide crawling. Outputs JSON/CSV. Use when the user wants to scrape, crawl, or extract article data from woshipm.com or 人人都是产品经理.
+license: MIT
+compatibility: Requires Python 3.6+, requests, beautifulsoup4, and network access.
 metadata:
-  version: 1.0.0
   author: zzzzz9999
-  tags: [crawler, woshipm, rss, web-scraping, python]
+  version: "1.0.0"
+  tags: crawler, woshipm, rss, web-scraping, python
 ---
 
-# 人人都是产品经理爬虫
+# woshipm.com Article Crawler
 
-## 功能
+Crawl full article data from [woshipm.com](https://www.woshipm.com) (人人都是产品经理), a leading Chinese product management community.
 
-从 woshipm.com 爬取文章完整数据：标题、作者、发布时间、分类、标签、摘要、完整正文（HTML+纯文本）、图片URL、评论数。
+## What It Extracts
 
-## 技术方案
+| Field | Source | Coverage |
+|-------|--------|----------|
+| Title | RSS `title` | 100% |
+| URL | RSS `link` | 100% |
+| Article ID | Extracted from URL | 100% |
+| Author | RSS `dc:creator` | 100% |
+| Publish date | RSS `pubDate` | 100% |
+| Main category | RSS `category[0]` | 100% |
+| Tags | RSS `category[1:]` | ~95% |
+| Summary | RSS `description` | 100% |
+| Full content | RSS `content:encoded` | 100% |
+| Content length | Computed | 100% |
+| Images | Extracted from HTML | 100% |
+| Comment count | RSS `slash:comments` | ~72% |
+| View count | Detail page (optional) | Partial |
 
-网站使用 Vue.js 前端渲染，列表页 HTML 中作者/标签由 JS 动态填充，纯 HTTP 爬虫拿不到。RSS Feed 是 WordPress 原生接口，服务端渲染，一次请求 15 篇完整文章。
+## Why RSS Instead of HTML Scraping
 
-RSS 端点：
-- 全站：`https://www.woshipm.com/feed?paged={page}`
-- 分类：`https://www.woshipm.com/category/{category}/feed?paged={page}`
+The site uses Vue.js client-side rendering. List page HTML only contains skeleton structure — author names, tag text, etc. are populated by JavaScript in the browser. Plain HTTP scraping (requests + BeautifulSoup) gets empty fields.
 
-每页 15 篇，全站最多约 29 页（435+ 篇）。
+RSS Feed is WordPress's native API, server-side rendered, returning 15 complete articles per request with all fields populated.
 
-## 使用方法
+**RSS endpoints:**
 
-### Step 1: 确认依赖
+```
+# Site-wide
+https://www.woshipm.com/feed?paged={page}
+
+# By category
+https://www.woshipm.com/category/{category}/feed?paged={page}
+```
+
+15 articles per page, ~29 pages max site-wide (435+ articles).
+
+## Usage
+
+### Step 1: Install dependencies
 
 ```bash
 pip install requests beautifulsoup4
 ```
 
-### Step 2: 运行爬虫
+### Step 2: Run the crawler
 
-脚本路径：`~/.catpaw/skills/woshipm-crawler/scripts/crawl_woshipm.py`
+The script is located at `scripts/crawl_woshipm.py` relative to this SKILL.md.
 
 ```bash
-python ~/.catpaw/skills/woshipm-crawler/scripts/crawl_woshipm.py
+python scripts/crawl_woshipm.py
 ```
 
-默认爬取 AI 分类前 5 页（75 篇），输出到当前目录的 `woshipm_articles_full.json` 和 `woshipm_articles.csv`。
+Default: crawls AI category, 5 pages (75 articles), outputs `woshipm_articles_full.json` and `woshipm_articles.csv` to current directory.
 
-### Step 3: 自定义参数
+### Step 3: Customize
 
-直接修改脚本中 `main()` 函数的配置区：
+Edit the config block in `main()`:
 
 ```python
-category = 'ai'       # 分类，None=全站
-max_pages = 5         # 页数，每页15篇
-fetch_details = True  # 是否补充详情页互动数据
-detail_limit = 10     # 详情爬取数量
-output_dir = '.'      # 输出目录
+category = 'ai'       # Category slug, None for site-wide
+max_pages = 5         # Pages to crawl, 15 articles per page
+fetch_details = True  # Fetch detail pages for view counts
+detail_limit = 10     # How many detail pages to fetch
+output_dir = '.'      # Output directory
 ```
 
-或者作为模块导入：
+Or import as a module:
 
 ```python
-import sys
-sys.path.insert(0, '~/.catpaw/skills/woshipm-crawler/scripts')
 from crawl_woshipm import crawl_rss_feed, save_to_csv, save_to_json
 
-# 爬取全站最新文章
+# Site-wide latest articles
 articles = crawl_rss_feed(category=None, max_pages=3)
+
+# Specific category
+articles = crawl_rss_feed(category='pd', max_pages=10)
+
 save_to_json(articles, 'articles.json')
 save_to_csv(articles, 'articles.csv')
-
-# 爬取指定分类
-articles = crawl_rss_feed(category='pd', max_pages=10)
 ```
 
-### 支持的分类
+### Available categories
 
-`ai`（AI）、`pd`（产品设计）、`it`（业界动态）、`zhichang`（职场攻略）、`marketing`（营销推广）、`data-analysis`（数据分析）、`evaluating`（分析评测）、`operate`（产品运营）、`user-research`（用户研究）。传 `None` 为全站。
+| Slug | Name |
+|------|------|
+| `ai` | AI |
+| `pd` | 产品设计 |
+| `it` | 业界动态 |
+| `zhichang` | 职场攻略 |
+| `marketing` | 营销推广 |
+| `data-analysis` | 数据分析 |
+| `evaluating` | 分析评测 |
+| `operate` | 产品运营 |
+| `user-research` | 用户研究 |
 
-## 输出格式
+Pass `None` for site-wide crawling.
 
-### JSON 字段说明
+## Output Format
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| title | string | 文章标题 |
-| url | string | 文章链接 |
-| id | string | 文章ID |
-| author | string | 作者名 |
-| publish_date | string | 发布时间 (YYYY-MM-DD HH:MM:SS) |
-| main_category | string | 主分类 |
-| tags | list[string] | 标签列表 |
-| summary | string | 摘要（纯文本） |
-| content | string | 完整正文（纯文本） |
-| content_html | string | 完整正文（HTML原文） |
-| content_length | int | 正文字数 |
-| images | list[string] | 正文图片URL列表 |
-| comments_count | int | 评论数 |
-| views | string | 阅读数（需补充爬详情页） |
+### JSON
 
-### CSV 字段
+```json
+{
+  "title": "关于AI、小红书和赚钱，我的45条思考！",
+  "url": "https://www.woshipm.com/ai/6431497.html",
+  "id": "6431497",
+  "author": "林卿LinQ.",
+  "publish_date": "2026-07-17 07:12:15",
+  "main_category": "AI",
+  "tags": ["个人随笔", "AI应用", "个人观点"],
+  "summary": "翻遍近一年朋友圈...",
+  "content": "这几天把自己最近一年的朋友圈翻了一遍...",
+  "content_html": "<blockquote><p>...</p></blockquote>...",
+  "content_length": 7162,
+  "images": ["https://image.woshipm.com/xxx.jpg"],
+  "comments_count": 0
+}
+```
 
-id, title, author, main_category, publish_date, content_length, comments_count, tags, url
+### CSV columns
 
-## 结果呈现
+`id, title, author, main_category, publish_date, content_length, comments_count, tags, url`
 
-爬取完成后，向用户展示：
-1. 总文章数和字段覆盖率统计
-2. 前 5 篇文章的标题、作者、时间、标签预览
-3. 输出文件路径
+## Presenting Results
 
-## 注意事项
+After crawling, show the user:
+1. Total article count and field coverage stats
+2. Preview of first 5 articles (title, author, date, tags)
+3. Output file paths
 
-- 请求间隔 1.5~4 秒随机延迟，避免对服务器造成压力
-- RSS Feed 是公开接口，无严格反爬限制
-- 阅读数等互动数据需额外爬详情页（JS 渲染，只能拿到部分）
-- 数据仅供学习研究使用
+## Rate Limiting
+
+- 1.5–4 second random delay between requests
+- Standard browser User-Agent
+- RSS Feed is a public endpoint with no strict anti-scraping
+
+## Notes
+
+- Respect the site's terms of service
+- Data is for learning and research purposes only
+- View counts require fetching individual detail pages (JS-rendered, partial data)
