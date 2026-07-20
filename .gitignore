@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pyo
+woshipm_articles*.json
+woshipm_articles*.csv
+.DS_Store
